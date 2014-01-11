@@ -1,0 +1,9 @@
+Package: kr.iolate.wavemessaging
+Name: WaveMessaging
+Depends: firmware (>= 6), mobilesubstrate
+Version: 0.1
+Architecture: iphoneos-arm
+Description: IPC for sandboxed iOS.
+Maintainer: iolate
+Author: iolate
+Section: Developer
