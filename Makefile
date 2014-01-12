@@ -8,7 +8,7 @@ WaveMessaging_PRIVATE_FRAMEWORKS = XPCService
 WaveMessaging_LDFLAGS = -lsubstrate
 
 LIBRARY_NAME = libwavemessaging
-libwavemessaging_FILES = libwavemessaging.mm ObjectToXPC.m
+libwavemessaging_FILES = libwavemessaging.m ObjectToXPC.m
 libwavemessaging_PRIVATE_FRAMEWORKS = XPCService
 libwavemessaging_INSTALL_PATH = /usr/lib/
 

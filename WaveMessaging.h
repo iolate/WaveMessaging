@@ -41,9 +41,12 @@ static NSDictionary* wmCallBack(NSString* serviceName, NSDictionary* contents, B
 //########################################
 #endif
 
-
 #import <Foundation/Foundation.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+    
 typedef NSDictionary* (*WaveMessagingCallBack) (NSString* serviceName, NSDictionary* contents, BOOL reply);
 BOOL WaveMessagingStartService(NSString* serviceName, WaveMessagingCallBack callback);
 BOOL WaveMessagingStopService(NSString* serviceName);
@@ -51,3 +54,7 @@ BOOL WaveMessagingStopService(NSString* serviceName);
 BOOL WaveMessagingIsValidService(NSString* serviceName);
 BOOL WaveMessagingSendMessage(NSString* serviceName, NSDictionary* contents);
 NSDictionary* WaveMessagingSendMessageWithReply(NSString* serviceName, NSDictionary* contents);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif

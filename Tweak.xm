@@ -15,6 +15,37 @@
 - (NSMutableSet *)_clients;
 @end
 @implementation BKApplicationStateServer
+-(void)_addClientConnection:(id)arg1 {
+    BKApplicationStateServerClient* client = [BKApplicationStateServerClient clientWithConnection:arg1];
+    NSMutableSet* _clients = [self _clients];
+    [_clients addObject:client];
+    
+    dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+    xpc_connection_set_target_queue(arg1, queue);
+    xpc_connection_set_event_handler(arg1, ^(xpc_object_t object) {
+        xpc_retain(object);
+        
+        dispatch_async(self->_queue, ^{
+            NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
+            xpc_type_t type = xpc_get_type( object );
+            
+            if ( type == XPC_TYPE_ERROR ) {
+                [self _removeClientConnection:arg1];
+            }else if ( type == XPC_TYPE_DICTIONARY ) {
+
+            }
+            
+            [self _handleMessage:object];
+            
+            [pool release];
+            xpc_release(object);
+        });
+    });
+    
+    if (self->_connectionResumed) {
+        xpc_connection_resume(arg1);
+    }
+}
 -(void)_removeClientConnection:(id)arg1 {
     BKApplicationStateServerClient* client = [self _clientForConnection:arg1];
     
@@ -77,13 +108,12 @@
 }
 @end
 
-
 static NSMutableDictionary* wmservices = nil;
 MSHook(void, xpc_connection_cancel, xpc_connection_t connection) {
     if (wmservices != nil) {
         for (WMXPCConnection* wmc in [wmservices allValues]) {
             if ([wmc connection] == connection) {
-                NSLog(@"#### WM: This is For WM. Block cancel message.");
+                //NSLog(@"#### WM: This is For WM. Block cancel message.");
                 return;
             }
         }
@@ -92,7 +122,27 @@ MSHook(void, xpc_connection_cancel, xpc_connection_t connection) {
     _xpc_connection_cancel(connection);
 }
 
-#define REMOVE_FROM_CLIENTS_LIST(c) [[NSClassFromString(@"BKApplicationStateServer") sharedInstance] _removeClientConnection:(id)c];
+#if 0
+void original_handler(xpc_object_t object) {
+    xpc_retain(object);
+    NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
+    
+    xpc_type_t type = xpc_get_type(object);
+    if (type == XPC_TYPE_ERROR) {
+        if (object == XPC_ERROR_CONNECTION_INTERRUPTED) {
+            
+        }else if (object == XPC_ERROR_CONNECTION_INVALID) {
+            [self _removeClientConnection:object];
+        }
+    }else if (type == XPC_TYPE_CONNECTION) {
+        [self _addClientConnection:object];
+    }
+    [pool release];
+    xpc_release(object);
+}
+#endif
+
+#define REMOVE_FROM_CLIENTS_LIST(c) dispatch_async(MSHookIvar<dispatch_queue_t>([NSClassFromString(@"BKApplicationStateServer") sharedInstance], "_queue"), ^{[[NSClassFromString(@"BKApplicationStateServer") sharedInstance] _removeClientConnection:(id)c]; });
 
 static BOOL handler_my_turn = NO;
 MSHook(void, xpc_connection_set_event_handler, xpc_connection_t connection, xpc_handler_t handler) {
@@ -102,7 +152,7 @@ MSHook(void, xpc_connection_set_event_handler, xpc_connection_t connection, xpc_
     if (name != NULL) {
         if (!strcmp(CUCKOO_XPC_NAME, name)) {
 
-            __block xpc_handler_t original_handler = Block_copy(handler);
+            xpc_handler_t original_handler = Block_copy(handler);
             handler = ^(xpc_object_t object) {
                 xpc_type_t type = xpc_get_type( object );
                 if ( type == XPC_TYPE_CONNECTION ) {
@@ -110,6 +160,9 @@ MSHook(void, xpc_connection_set_event_handler, xpc_connection_t connection, xpc_
                 }
                 original_handler(object); //-> [ _addClientConnection: ] -> xpc_connection_set_event_handler
             };
+            
+            _xpc_connection_set_event_handler(connection, handler);
+            return;
         }
     }else if (name == NULL && handler_my_turn) {
         handler_my_turn = NO;
